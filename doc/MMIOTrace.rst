@@ -286,13 +286,13 @@ something like the following::
 
 
 Copy the lines starting with ``region2+0x26c960, 0xa5a5a5a5, 4)`` to ``region2+0x26c978, 0x0, 4)`` to a separate file called vfiotrace.nvram.txt.
-It should add up to about 775 lines. Copy the lines completely, do not strip out the prefix.
+It should add up to about 775 lines. Copy the lines completely, do not strip out the prefix. This section corresponds to the **brcmfmac43602-pcie.txt**
 
 
 Generate Firmware Files
 =======================
 
-Download and Compile QEMU event trace to image generator::
+Download and Compile QEMU event trace to image generator, **qmap**::
 
   git clone https://github.com/sonals/macbookpro14-3.git
   mkdir bin
@@ -300,7 +300,12 @@ Download and Compile QEMU event trace to image generator::
   cmake ../src
   make
 
-Create memory map dump of the tracelog::
+Create memory map dump of the tracelog. The application qmap creates a memory overlay backed by a file and then
+replays VFIO writes to the overlay by reading the VFIO event trace file captured before. By examining the generated
+file contents we can recover the firmware files::
 
   qmap vfiotrace.nvram.txt nvram.bin
   cat nvram.bin
+
+Note that nvram.bin would be filled with null characters for all regions of memory which have not been written. You can easiliy
+replace them with newlines or white space.
