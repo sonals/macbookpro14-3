@@ -1,3 +1,5 @@
+.. _MMIOTrace.rst:
+
 Setting up VFIO Trace of BRCM Drivers
 *************************************
 
@@ -222,16 +224,42 @@ Now capture the command line used by QEMU to run your Windows10 VM which we will
 
   ps -aef | grep qemu
 
+The command line would look something like the following::
+
+  qemu-system-x86_64 -enable-kvm -name guest=windows10,debug-threads=on -machine pc-q35-2.11,accel=kvm,usb=off,vmport=off,dump-guest-core=off -cpu Skylake-Client-IBRS,hv_time,hv_relaxed,hv_vapic,hv_spinlocks=0x1fff -drive file=/usr/share/OVMF/OVMF_CODE.fd,if=pflash,format=raw,unit=0,readonly=on -drive file=/var/lib/libvirt/qemu/nvram/windows10home_VARS.fd,if=pflash,format=raw,unit=1 -m 8192 -realtime mlock=off -smp 4,sockets=4,cores=1,threads=1 -uuid 71cf621d-3400-42e7-b59a-977d0a91e3d9 -no-user-config -nodefaults -rtc base=localtime,driftfix=slew -global kvm-pit.lost_tick_policy=delay -no-hpet -no-shutdown -global ICH9-LPC.disable_s3=1 -global ICH9-LPC.disable_s4=1 -boot menu=on,strict=on -device i82801b11-bridge,id=pci.1,bus=pcie.0,addr=0x1e -device pci-bridge,chassis_nr=2,id=pci.2,bus=pci.1,addr=0x0 -device pcie-root-port,port=0x10,chassis=3,id=pci.3,bus=pcie.0,multifunction=on,addr=0x2 -device pcie-root-port,port=0x11,chassis=4,id=pci.4,bus=pcie.0,addr=0x2.0x1 -device pcie-root-port,port=0x12,chassis=5,id=pci.5,bus=pcie.0,addr=0x2.0x2 -device pcie-root-port,port=0x13,chassis=6,id=pci.6,bus=pcie.0,addr=0x2.0x3 -device pcie-root-port,port=0x14,chassis=7,id=pci.7,bus=pcie.0,addr=0x2.0x4 -device pcie-root-port,port=0x15,chassis=8,id=pci.8,bus=pcie.0,addr=0x2.0x5 -device pcie-root-port,port=0x16,chassis=9,id=pci.9,bus=pcie.0,addr=0x2.0x6 -device ich9-usb-ehci1,id=usb,bus=pcie.0,addr=0x1d.0x7 -device ich9-usb-uhci1,masterbus=usb.0,firstport=0,bus=pcie.0,multifunction=on,addr=0x1d -device ich9-usb-uhci2,masterbus=usb.0,firstport=2,bus=pcie.0,addr=0x1d.0x1 -device ich9-usb-uhci3,masterbus=usb.0,firstport=4,bus=pcie.0,addr=0x1d.0x2 -device lsi,id=scsi0,bus=pci.3,addr=0x0 -device virtio-serial-pci,id=virtio-serial0,bus=pci.4,addr=0x0 -drive file=/home/VM/virtio-win-0.1.171.iso,format=raw,if=none,id=drive-sata0-0-0,media=cdrom,readonly=on -device ide-cd,bus=ide.0,drive=drive-sata0-0-0,id=sata0-0-0,bootindex=1 -drive file=/home/VM/windows10.img,format=raw,if=none,id=drive-virtio-disk1 -device virtio-blk-pci,scsi=off,bus=pci.9,addr=0x0,drive=drive-virtio-disk1,id=virtio-disk1,bootindex=2 -chardev spicevmc,id=charchannel0,name=vdagent -device virtserialport,bus=virtio-serial0.0,nr=1,chardev=charchannel0,id=channel0,name=com.redhat.spice.0 -device usb-tablet,id=input0,bus=usb.0,port=1 -spice port=5900,addr=127.0.0.1,disable-ticketing,image-compression=off,seamless-migration=on -device qxl-vga,id=video0,ram_size=67108864,vram_size=67108864,vram64_size_mb=0,vgamem_mb=16,max_outputs=1,bus=pcie.0,addr=0x1 -device intel-hda,id=sound0,bus=pci.2,addr=0x2 -device hda-duplex,id=sound0-codec0,bus=sound0.0,cad=0 -chardev spicevmc,id=charredir0,name=usbredir -device usb-redir,chardev=charredir0,id=redir0,bus=usb.0,port=2 -chardev spicevmc,id=charredir1,name=usbredir -device usb-redir,chardev=charredir1,id=redir1,bus=usb.0,port=3 -device vfio-pci,host=03:00.0,id=hostdev0,bus=pci.7,addr=0x0 -device virtio-balloon-pci,id=balloon0,bus=pci.5,addr=0x0 -msg timestamp=on
+
+Notice VFIO PCIe device passthrough of host bus 03:00.0 which is Wireless LAN Controller::
+
+  -device vfio-pci,host=03:00.0,id=hostdev0,bus=pci.7,addr=0x0
+
 Shutdown the VM.
 
 Setting up MMIO Tracing
 =======================
 
+This time we will rerun the VM but with MMIO tracing of the Wireless LAN Controller. This will
+record all PCIe BAR read and writes performed by the Windows Wireless LAN Driver. This requires
+disabling mmap for the pass through device and tracing all VFIO region write events using a config file.
+
 Create event tracing config::
 
   echo "vfio_region_write" > events.txt
 
-Open the vfiotrace.log file and look for ``0x26c960, 0xa5a5a5a5, 4)``. It would look something like the following::
+Modify the QEMU command line by changing the passthrough device configuration::
+
+  -device vfio-pci,host=03:00.0,id=hostdev0,bus=pci.7,addr=0x0,x-no-mmap=true
+
+Add QEMU switches to capture VFIO region writes::
+
+  -trace events=events.txt,file=/tmp/vfiotrace.log
+
+The modified command line would look something like the following::
+
+  qemu-system-x86_64 -enable-kvm -name guest=windows10,debug-threads=on -machine pc-q35-2.11,accel=kvm,usb=off,vmport=off,dump-guest-core=off -cpu Skylake-Client-IBRS,hv_time,hv_relaxed,hv_vapic,hv_spinlocks=0x1fff -drive file=/usr/share/OVMF/OVMF_CODE.fd,if=pflash,format=raw,unit=0,readonly=on -drive file=/var/lib/libvirt/qemu/nvram/windows10home_VARS.fd,if=pflash,format=raw,unit=1 -m 8192 -realtime mlock=off -smp 4,sockets=4,cores=1,threads=1 -uuid 71cf621d-3400-42e7-b59a-977d0a91e3d9 -no-user-config -nodefaults -rtc base=localtime,driftfix=slew -global kvm-pit.lost_tick_policy=delay -no-hpet -no-shutdown -global ICH9-LPC.disable_s3=1 -global ICH9-LPC.disable_s4=1 -boot menu=on -device i82801b11-bridge,id=pci.1,bus=pcie.0,addr=0x1e -device pci-bridge,chassis_nr=2,id=pci.2,bus=pci.1,addr=0x0 -device pcie-root-port,port=0x10,chassis=3,id=pci.3,bus=pcie.0,multifunction=on,addr=0x2 -device pcie-root-port,port=0x11,chassis=4,id=pci.4,bus=pcie.0,addr=0x2.0x1 -device pcie-root-port,port=0x12,chassis=5,id=pci.5,bus=pcie.0,addr=0x2.0x2 -device pcie-root-port,port=0x13,chassis=6,id=pci.6,bus=pcie.0,addr=0x2.0x3 -device pcie-root-port,port=0x14,chassis=7,id=pci.7,bus=pcie.0,addr=0x2.0x4 -device pcie-root-port,port=0x15,chassis=8,id=pci.8,bus=pcie.0,addr=0x2.0x5 -device pcie-root-port,port=0x16,chassis=9,id=pci.9,bus=pcie.0,addr=0x2.0x6 -device ich9-usb-ehci1,id=usb,bus=pcie.0,addr=0x1d.0x7 -device ich9-usb-uhci1,masterbus=usb.0,firstport=0,bus=pcie.0,multifunction=on,addr=0x1d -device ich9-usb-uhci2,masterbus=usb.0,firstport=2,bus=pcie.0,addr=0x1d.0x1 -device ich9-usb-uhci3,masterbus=usb.0,firstport=4,bus=pcie.0,addr=0x1d.0x2 -device lsi,id=scsi0,bus=pci.3,addr=0x0 -device virtio-serial-pci,id=virtio-serial0,bus=pci.4,addr=0x0 -drive file=/home/VM/virtio-win-0.1.171.iso,format=raw,if=none,id=drive-sata0-0-0,media=cdrom,readonly=on -device ide-cd,bus=ide.0,drive=drive-sata0-0-0,id=sata0-0-0,bootindex=1 -drive file=/home/VM/windows10.img,format=raw,if=none,id=drive-virtio-disk1 -device virtio-blk-pci,scsi=off,bus=pci.9,addr=0x0,drive=drive-virtio-disk1,id=virtio-disk1,bootindex=2 -device usb-tablet,id=input0,bus=usb.0,port=1 -device qxl-vga,id=video0,ram_size=67108864,vram_size=67108864,vram64_size_mb=0,vgamem_mb=16,max_outputs=1,bus=pcie.0,addr=0x1  -device vfio-pci,host=03:00.0,id=hostdev0,bus=pci.7,addr=0x0,x-no-mmap=true -device virtio-balloon-pci,id=balloon0,bus=pci.5,addr=0x0 -msg timestamp=on -trace events=events.txt,file=/tmp/vfiotrace.log
+
+Let the VM run for a minute and then shutdown the VM. Open the vfiotrace.log file. It should
+have event records captured by QEMU. Look for ``0x26c960, 0xa5a5a5a5, 4)``. It would look
+something like the following::
 
   493@1581830832.154442:vfio_region_write  (0000:03:00.0:region2+0x26c960, 0xa5a5a5a5, 4)
   493@1581830832.154450:vfio_region_write  (0000:03:00.0:region2+0x26ffda, 0x5a5a, 2)
