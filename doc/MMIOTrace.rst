@@ -5,15 +5,15 @@ Test System
 ===========
 
 Product Name
-   MacBookPro14,3.
+   MacBookPro14,3
 
 
 BIOS/UEFI Version
-   204.0.0.0.0.
+   204.0.0.0.0
 
 
 Linux
-   Ubuntu 18.04.4 LTS.
+   Ubuntu 18.04.4 LTS
 
 
 Pre-requisite Installs
@@ -189,7 +189,7 @@ Virt-manager Configuration
 --------------------------
 
 Start virt-manager click on **Create a new virtual machine** Wizard. In Step 1 select *Local install media* and
-select Windows10 ISO downloaded before. In Step 5 of "Create a new virtual machine" check the box for
+select Windows10 ISO downloaded before. In Step 5 of *Create a new virtual machine* check the box for
 *Customize configuration before install*. Please select **Q35** for Chipset and **UEFI** for Firmware. If you
 cannot see UEFI option please install the ovmf package for your distribution.
 
