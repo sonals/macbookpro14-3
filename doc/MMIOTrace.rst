@@ -305,7 +305,9 @@ replays VFIO writes to the overlay by reading the VFIO event trace file captured
 file contents we can recover the firmware files::
 
   qmap vfiotrace.nvram.txt nvram.bin
-  cat nvram.bin
+  head nvram.bin
 
-Note that nvram.bin would be filled with null characters for all regions of memory which have not been written. You can easiliy
-replace them with newlines or white space.
+Note that nvram.bin would be filled with ASCII NUL (^@) characters for all regions of memory which have not been written.
+You can easiliy replace them with newlines::
+  tr '\000' '\n' < nvram.bin > nvram.bin.txt
+  vi nvram.bin.txt
