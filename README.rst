@@ -20,4 +20,4 @@ Linux
 MMIO Trace to Capture NVRAM from BootCamp Drivers
 -------------------------------------------------
 
-Refer to :ref:`doc/MMIOTrace.rst`
+Refer to :doc:`doc/MMIOTrace.rst`
