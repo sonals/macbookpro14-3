@@ -20,4 +20,4 @@ Linux
 MMIO Trace to Capture NVRAM from BootCamp Drivers
 -------------------------------------------------
 
-Refer to :doc:`doc/MMIOTrace.rst`
+`MMIOTrace.rst <https://github.com/sonals/macbookpro14-3/blob/master/doc/MMIOTrace.rst>`__
